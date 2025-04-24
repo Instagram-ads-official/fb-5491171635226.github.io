@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Conectando con WhatsApp...</title>
+</head>
+<body>
+  <h1>Redirigiendo a WhatsApp…</h1>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    // 1) Configuración básica
+    const whatsappNumber = '5491171635226';
+    const mensajeBase    = 'Hola, vengo por el bono de bienvenida del 200%, ¿me creas un usuario?';
+
+    // 2) Captura fbclid
+    const params = new URLSearchParams(window.location.search);
+    let fbclid = params.get('fbclid') || '';
+    if (!fbclid && window.location.hash.includes('fbclid=')) {
+      fbclid = new URLSearchParams(window.location.hash.slice(1)).get('fbclid') || '';
+    }
+    if (!fbclid && document.referrer.includes('fbclid=')) {
+      const refQs = document.referrer.split('?')[1] || '';
+      fbclid = new URLSearchParams(refQs).get('fbclid') || '';
+    }
+    fbclid ||= 'no_disponible';
+
+    // 3) Llamada Geo IPify (Country+City)
+    let ip = '', country = '', region = '', city = '', domain = '';
+    try {
+      const resp = await fetch(
+        'https://geo.ipify.org/api/v2/country,city?apiKey=at_bm13j7tXoeE9XJOVK83yQAJO6JPrg'
+      );
+      const info = await resp.json();
+
+      ip      = info.ip || '';
+      country = info.location?.country || '';
+      region  = info.location?.region  || '';
+      city    = info.location?.city    || '';
+
+      // <-- AQUI: extraemos el dominio desde info.as.domain
+      domain = info.as?.domain || '';
+    } catch (err) {
+      console.warn('Error al obtener GEO‑info:', err);
+    }
+
+    // 4) UUID sencillo
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const id = Array.from(bytes)
+      .map(b => b.toString(16).padStart(2,'0'))
+      .join('');
+
+    // 5) Timestamp
+    const timestamp = new Date().toISOString();
+
+    // 6) Envío al API Gateway
+    const payload = { id, fbclid, ip, country, region, city, domain, timestamp };
+    console.log('Payload →', payload);
+    try {
+      await fetch(
+        'https://auo1x1y1li.execute-api.us-east-2.amazonaws.com/prod/visita',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }
+      );
+    } catch (err) {
+      console.error('Error al enviar datos:', err);
+    }
+
+    // 7) Redirección a WhatsApp
+    const texto = `${mensajeBase} Mi código es: ${id}`;
+    window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(texto)}`;
+  });
+  </script>
+</body>
+</html>
